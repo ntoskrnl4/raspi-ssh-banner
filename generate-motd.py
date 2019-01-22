@@ -1,10 +1,10 @@
 from subprocess import Popen, PIPE
 from datetime import datetime
 from math import atan
+from socket import gethostname
 
-import psutil
-import socket
 import sys
+import psutil
 import time
 
 dBm_color_scale: int = 70  # factor we'll apply to arctan
@@ -31,6 +31,17 @@ def wifi_strength(value: int) -> str:
 	return f"\x1b[38;2;{int(red)};{int(green)};0m{value} dBm"
 
 
+def cpu_temperature(value) -> str:
+	value = float(value)
+	if value >= 70:
+		return f"\x1b[38;2;255;0;0m{value}'C"
+	if value <= 40:
+		return f"\x1b[38;2;0;0;255m{value}'C"
+	red = (value-40)*(255/30)
+	green = 255-red
+	return f"\x1b[38;2;{int(red)};{int(green)};0m{value}'C"
+
+
 # Get a bool with online/offline from sevice name
 def get_service_status(name: str) -> bool:
 	p = Popen(["systemctl", "status", name], stdout=PIPE, stdin=PIPE, stderr=PIPE)
@@ -42,14 +53,14 @@ def get_service_status(name: str) -> bool:
 def get_cpu_text(value: float) -> str:
 	green = 255 - (value*2.55)
 	red = value*2.55
-	return f"\x1b[38;2;{int(red)};{int(green)};0m{value:.1f}%"
+	return f"\x1b[38;2;{int(red)};{int(green)};0m{value:.1f}"
 
 
 psutil.cpu_percent(percpu=True)
 cpu_start_capture = time.perf_counter()
 
 
-out += f"{f_light_gray}Welcome, {f_mild_blue}ntoskrnl{f_dark_gray}\n\n"
+out += f"{f_light_gray}Welcome, {f_mild_blue}ntoskrnl{f_light_gray}\n\n"
 
 # ----------
 
@@ -64,19 +75,14 @@ uphours = (upseconds % 86400) // 3600
 upminutes = (upseconds % 3600) // 60
 upseconds = upseconds % 60
 
-out += f"The current time is {f_green}<replace with datetime> UTC{f_dark_gray}\n"
-out += f"System uptime is " \
-		f"{f_dark_green}{int(updays)}{f_dark_gray} days " \
-		f"{f_dark_green}{int(uphours)}{f_dark_gray} hours " \
-		f"{f_dark_green}{int(upminutes)}{f_dark_gray} minutes " \
-		f"{f_dark_green}{upseconds:.3f}{f_dark_gray} seconds\n"
-out += f"System has been online since {f_dark_green}{boot_dt.__str__()} UTC{f_dark_gray}\n"
-out += f"System hostname is {f_light_gray}{socket.gethostname()}{f_dark_gray}\n\n"
+out += f"The time is: {f_green}<replace with datetime> UTC{f_light_gray}\n"
+out += f"System uptime is: {f_green}{int(updays):4}d {int(uphours):2d}:{int(upminutes):2d}:{int(upseconds):2d}{f_light_gray}\n"
+out += f"Online since {f_green}{boot_dt.__str__()} UTC{f_light_gray}\n\n"
 
 # -----------
 
 out += f"{f_white}System Services{f_dark_gray}\n"
-out += f" - {f_green if get_service_status('sshd') else f_red}sshd{f_dark_gray}\n"
+out += f" - {f_green if get_service_status('plexmediaserver') else f_red}plex{f_dark_gray}\n"
 out += f" - {f_green if get_service_status('openvpn') else f_red}openvpn{f_dark_gray}\n"
 
 pihole_status = b"Enabled" in Popen(["pihole", "status"], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate(timeout=0.25)[0]
@@ -120,11 +126,9 @@ except KeyError:
 out += f"\n{f_white}System Monitors{f_dark_gray}\n"
 
 out += f" - {f_light_gray}CPU Frequency: {f_mild_blue}{psutil.cpu_freq().current} MHz{f_dark_gray}\n"
-index = 0
-cpu_text = ""
-for x in psutil.cpu_percent(percpu=True):
-	out += f" - {f_light_gray}CPU {index}: {get_cpu_text(x)}{f_dark_gray}\n"
-	index += 1
+out += f" - {f_light_gray}CPU Usage: "
+out += " ".join([get_cpu_text(x) for x in psutil.cpu_percent(percpu=True)])
+out += f"{f_dark_gray}\n"
 
 m_raw = psutil.virtual_memory()
 m_total = m_raw.total
@@ -132,5 +136,5 @@ m_available = m_raw.available
 m_used = m_total - m_available
 out += f" - {f_light_gray}Memory Usage: {f_dark_gray}{m_used/(1024*1024):.1f}/{m_total/(1024*1024):.1f} MiB ({(m_used/m_total)*100:.2f}%)\n"
 
-out = out.replace("<replace with datetime>", datetime.utcnow().__str__())
+out = out.replace("<replace with datetime>", datetime.fromtimestamp(int(time.time())).__str__())
 sys.stdout.write(out)
