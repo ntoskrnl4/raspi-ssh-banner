@@ -2,7 +2,7 @@
 A custom SSH banner script for my Raspberry Pi
 
 ##
-I wanted a custom SSH banner for my Rsapberry Pi, one that would tell me a bit about its current status, and statistics
+I wanted a custom SSH banner for my Raspberry Pi, one that would tell me a bit about its current status, and statistics
 and service status of the Raspberry Pi, such as OpenVPN, Discord bots, local IPs, and system load. After a bit of 
 research on MotD scripts and ANSI color codes and such, I put together this script one afternoon in my free time.
 
